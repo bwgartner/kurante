@@ -28,7 +28,7 @@
     value=$(uptime | \
 	awk 'BEGIN { FS = "," } ; { print $1 }' | \
 	awk 'BEGIN { FS = " " } {for(i=3;i<=NF;i++) printf $i" "; print ""}')
-      echo 'UP_TIME='$\"${value}\" >> ${reportFile}
+      echo 'UP_TIME='\"${value}\" >> ${reportFile}
 	
   # Operating System naming
     [ -e /etc/os-release ] && grep ^PRETTY_NAME /etc/os-release >> ${reportFile}
