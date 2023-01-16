@@ -1,0 +1,136 @@
+#! /bin/sh
+
+##
+# Prepare / Setup
+##
+
+  # Configuration parameters / files
+    confFile=/etc/opt/kurante/kurante.conf
+    [ -r ${confFile} ] && . ${confFile}
+
+  # Output directory
+    outDir=${collectionDir}/$(cat /etc/machine-id)
+    [ -d ${outDir} ] || mkdir -p ${outDir}
+    cd ${collectionDir}
+    
+  # retain pre-existing output
+    [ -e ${reportFile} ] && mv ${reportFile} ${reportFile}.bak
+
+##
+# Gather running status information
+##
+
+  # timings
+
+    value=$(date +%D-%T)
+      echo 'RUN_TIME='\"${value}\" >> ${reportFile}
+
+    value=$(uptime | \
+	awk 'BEGIN { FS = "," } ; { print $1 }' | \
+	awk 'BEGIN { FS = " " } {for(i=3;i<=NF;i++) printf $i" "; print ""}')
+      echo 'UP_TIME='$\"${value}\" >> ${reportFile}
+	
+  # Operating System naming
+    [ -e /etc/os-release ] && grep ^PRETTY_NAME /etc/os-release >> ${reportFile}
+
+    # Operating System product packages included
+      osList=""
+      for p in $(zypper se -t product | grep ^i | awk -F"|" '{print $2}')
+        do
+	  osList+=$(echo $p)":"
+        done
+
+    # Rancher kubernetes layers included
+      k8sList=""
+    
+      # Docker container usage of Rancher
+        $(which docker >/dev/null 2>&1) && \
+          $(docker ps | grep rancher\:v2 >/dev/null 2>&1) && \
+            k8sList="Rancher-docker:"
+
+      # K3s
+        $(which k3s >/dev/null 2>&1) && {
+          $(k3s crictl images | grep rancher | grep v2 >/dev/null 2>&1) && \
+            k8sList+="Rancher:"
+	  $(k3s crictl ps >/dev/null 2>&1) && \
+            k8sList+="K3s:"
+        }
+
+      # RKE2
+        $(which rke2 >/dev/null 2>&1) && {
+          $(${RKE2_DIR}/bin/crictl images | grep rancher | grep v2 >/dev/null 2>&1) && \
+	    k8sList+="Rancher:"
+	  $(${RKE2_DIR}/bin/crictl ps >/dev/null 2>&1) && \
+            k8sList+="RKE2:"
+        }
+
+      # RKE
+        $(which docker >/dev/null 2>&1) && {
+          $(docker images | grep rancher | grep v2 >/dev/null 2>&1) && \
+            k8sList+="Rancher:"
+          $(docker ps | grep rke >/dev/null 2>&1) && \
+            k8sList+="RKE:"
+        }
+
+    echo 'PRODUCT_NAMES='\"${osList}_${k8sList}\" >> ${reportFile}	
+
+  # hardware resources correlating to subscriptions
+
+    # Architecture
+      value=$(uname -m)
+        echo 'ARCHITECTURE='\"${value}\" >> ${reportFile}
+
+    # Virtual vs. physical
+      case $(dmidecode -s system-manufacturer) in
+	"Microsoft Corporation" )
+		echo 'VIRTUAL='\"Hyper-V\" >> ${reportFile}
+		vm="true"
+		;;
+	QEMU | KVM )
+		echo 'VIRTUAL='\"QEMU\" >> ${reportFile}
+		vm="true"
+		;;
+	VirtualBox | "innotek GmbH" )
+		echo 'VIRTUAL='\"VirtualBox\" >> ${reportFile}
+                vm="true"
+                ;;
+	VMware | "VMware, Inc." )
+		echo 'VIRTUAL='\"VMware\" >> ${reportFile}
+                vm="true"
+                ;;
+	Xen )
+		echo 'VIRTUAL='\"Xen\" >> ${reportFile}
+                vm="true"
+                ;;
+      esac				
+
+    # CPU thread/core/socket
+
+      value=$(lscpu | grep Thread | awk '{print $NF}')
+        echo 'Thread(s)_perCORE='\"${value}\" >> ${reportFile}
+
+      if [ "${vm}" = "true" ]
+        then
+          value=$(nproc)
+            echo 'CORE(s)_perSOCKET='\"${value}\" >> ${reportFile}
+	    echo 'SOCKET(s)='\"1\" >> ${reportFile}
+        else
+          value=$(lscpu | \
+		grep Core\(s\) | \
+		awk '{print $NF}')
+	    echo 'CORE(s)_perSOCKET='\"${value}\" >> ${reportFile}
+          value=$(lscpu | \
+		grep ^Socket\(s\) | \
+		awk '{print $NF}')
+	    echo 'SOCKET(s)='\"${value}\" >> ${reportFile}
+      fi
+
+    # Memory
+      value=$(free -b | \
+		grep ^Mem: | \
+		awk '{print $2}')
+      echo 'MEMORY='\"${value}\" >> ${reportFile}
+
+##
+# Denote relevant changes
+##

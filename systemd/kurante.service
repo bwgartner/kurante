@@ -1,0 +1,6 @@
+[Unit]
+Description=Collect and gather running status of system information
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/sh -c '/opt/kurante/sbin/kurante'

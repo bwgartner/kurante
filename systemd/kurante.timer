@@ -1,0 +1,11 @@
+[Unit]
+Description=Run kurante.service on regular daily intervals
+
+[Timer]
+### see systemd.time, systemd.timer
+## every day, on Fibonaci hours, with random delay of 32 minutes
+OnCalendar=*-*-* 1,2,3,5,8,13,21:00:00
+RandomizedDelaySec=32min
+
+[Install] 
+WantedBy=timers.target
