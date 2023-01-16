@@ -11,7 +11,7 @@
   # Output directory
     outDir=${collectionDir}/$(cat /etc/machine-id)
     [ -d ${outDir} ] || mkdir -p ${outDir}
-    cd ${collectionDir}
+    cd ${outDir}
     
   # retain pre-existing output
     [ -e ${reportFile} ] && mv ${reportFile} ${reportFile}.bak
